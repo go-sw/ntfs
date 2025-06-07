@@ -61,7 +61,7 @@ func newBkupStruct(path string, restore, processSecurity, overwrite bool) (*bkup
 		u16Path,
 		access,
 		mode,
-		nil, // set later with [BackupWrite] for restore
+		nil, // set later with [w32api.BackupWrite] for restore
 		createmode,
 		attrs,
 		0,
@@ -158,6 +158,9 @@ func (s *bkupStruct) seek(offset int64, whence int) (int64, error) {
 	n, err := w32api.BackupSeek(s.h, uint64(offset), &s.ctx)
 	switch err {
 	case nil:
+		if n == 0 {
+			return 0, io.EOF
+		}
 		return int64(n), nil
 	case windows.ERROR_SUCCESS:
 		// not actually seeked as it will skip the header
@@ -235,9 +238,6 @@ func NewBackupFileWriter(path string, processSecurity, overwrite bool) (*BackupF
 }
 
 var (
-	ErrEmptyADSName = errors.New("alternate data stream should have a name")
-	ErrSkipHeader   = errors.New("tried to skip stream header")
-
 	defaultHandler = func(ctx BackupCtx, data []byte) ([]byte, error) {
 		if ctx.Hdr.IsActive() {
 			hdrBuf, err := ctx.Hdr.ToBytes()
@@ -251,16 +251,6 @@ var (
 	defaultWriteCb = func(err error) error {
 		return err
 	}
-)
-
-const (
-	strmState uint8 = iota
-	dataState
-)
-
-const (
-	hdrSz    = 20 // fixed raw stream header size
-	offsetSz = 8  // bytes used by sparse block offset
 )
 
 func extractStrmName(s string) string {

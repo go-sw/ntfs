@@ -26,7 +26,7 @@ import (
 	} FILE_RENAME_INFO,*PFILE_RENAME_INFO;
 */
 
-// NewFileRenameInfo returns FILE_RENAME_INFO from winbase.h as bytes buffer used for renaming ADS name.
+// NewFileRenameInfo returns FILE_RENAME_INFO from winbase.h as bytes buffer used for renaming file.
 func NewFileRenameInfo(newName string, replace bool) ([]byte, error) {
 	if len(newName) == 0 {
 		return nil, errors.New("new name is empty")
@@ -50,11 +50,6 @@ func NewFileRenameInfo(newName string, replace bool) ([]byte, error) {
 	u16Name, err := windows.UTF16FromString(newName)
 	if err != nil {
 		return nil, err
-	}
-
-	// max length = 257(1(":") + 255(max ads name length) + 1(NULL termination))
-	if len(u16Name) > 257 {
-		return nil, errors.New("the length of new name exceeds max length(255)")
 	}
 
 	var fileNameLength uint32 = uint32((len(u16Name) - 1) * 2) // length in bytes without NULL terminaton
