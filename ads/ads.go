@@ -113,7 +113,7 @@ type FileADS struct {
 
 // GetFileADS returns ADS handler with a map of alternate data streams
 // from the specified file.
-func GetFileADS(path string) (FileADS, error) {
+func GetFileADS(path string) (*FileADS, error) {
 	var err error
 	var absPath string // normalized path
 
@@ -123,17 +123,17 @@ func GetFileADS(path string) (FileADS, error) {
 	} else {
 		absPath, err = filepath.Abs(path)
 		if err != nil {
-			return FileADS{}, err
+			return nil, err
 		}
 	}
 
-	ads := FileADS{
+	ads := &FileADS{
 		Path: absPath,
 		mut:  &sync.Mutex{},
 	}
 
 	if err = ads.CollectADS(); err != nil {
-		return ads, err
+		return nil, err
 	}
 
 	return ads, err

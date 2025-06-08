@@ -65,3 +65,46 @@ type FILE_GET_EA_INFORMATION struct {
 	EaName          []int8 // [EaNameLength]int8
 	//_ [1]byte // null terminator
 }
+
+// EFS(encrypted file system) types
+
+// flags for OpenEncryptedFileRaw
+const (
+	CREATE_FOR_IMPORT = 1
+	CREATE_FOR_DIR    = 2
+	OVERWRITE_HIDDEN  = 4
+)
+
+type EFS_CERTIFICATE_BLOB struct {
+	CertEncodingType uint32
+	CbData           uint32
+	PbData           *byte
+}
+
+type ENCRYPTION_CERTIFICATE struct {
+	TotalLength uint32
+	UserSid     *windows.SID
+	CertBlob    *EFS_CERTIFICATE_BLOB
+}
+
+type ENCRYPTION_CERTIFICATE_LIST struct {
+	NumUser uint32
+	Users   *ENCRYPTION_CERTIFICATE // []ENCRYPTION_CERTIFICATE
+}
+
+type EFS_HASH_BLOB struct {
+	CbData uint32
+	PbData *byte
+}
+
+type ENCRYPTION_CERTIFICATE_HASH struct {
+	TotalLength        uint32
+	UserSid            *windows.SID
+	Hash               *EFS_HASH_BLOB
+	DisplayInformation *uint16
+}
+
+type ENCRYPTION_CERTIFICATE_HASH_LIST struct {
+	NumCertHash uint32
+	Users       *ENCRYPTION_CERTIFICATE_HASH // []ENCRYPTION_CERTIFICATE_HASH
+}

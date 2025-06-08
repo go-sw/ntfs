@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -51,27 +52,25 @@ func convertToFullInfoBuf(arr []EaInfo) ([]byte, error) {
 
 		if wholeInfoLen > 0xffff {
 			// if the total size of EA info is larger than 64KB bytes, this EaSetEaFile fails with STATUS_EA_TOO_LARGE,
-			// if it goes a lot larger(potential bug(?)), it will write the data up to the limit without erroring,
-			// causing inconsistent data
+			// if it goes a lot larger, it will write the data up to the limit without erroring(potential bug(?)),
+			// which results writing inconsistent data
 			return nil, fmt.Errorf("EA info data is larger than 64KB")
 		}
 
-		buf := make([]byte, fullInfoLen)
-		fullEa := (*w32api.FILE_FULL_EA_INFORMATION)(unsafe.Pointer(&buf[0]))
-
-		fullEa.Flags = eaEnt.Flags
-		fullEa.EaNameLength = uint8(len(eaName))
-		fullEa.EaValueLength = uint16(len(eaEnt.EaValue))
-
+		fullEa := w32api.FILE_FULL_EA_INFORMATION{
+			Flags:         eaEnt.Flags,
+			EaNameLength:  uint8(len(eaName)),
+			EaValueLength: uint16(len(eaEnt.EaValue)),
+		}
 		if i < len(arr)-1 {
 			fullEa.NextEntryOffset = fullInfoLen
 		}
 
-		wholeBuf.Write(buf[:fullInfoHeaderSize])
+		wholeBuf.Write(unsafe.Slice((*byte)(unsafe.Pointer(&fullEa)), fullInfoHeaderSize))
+		runtime.KeepAlive(fullEa)
 		wholeBuf.Write(unsafe.Slice((*byte)(unsafe.Pointer(&eaName[0])), len(eaName)))
 		wholeBuf.WriteByte(0) // null terminator
 		wholeBuf.Write(eaEnt.EaValue)
-
 		if padSize > 0 {
 			wholeBuf.Write(make([]byte, 4-padSize))
 		}

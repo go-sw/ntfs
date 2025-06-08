@@ -38,21 +38,155 @@ func errnoErr(e syscall.Errno) error {
 }
 
 var (
+	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	modntdll    = windows.NewLazySystemDLL("ntdll.dll")
 
-	procBackupRead             = modkernel32.NewProc("BackupRead")
-	procBackupSeek             = modkernel32.NewProc("BackupSeek")
-	procBackupWrite            = modkernel32.NewProc("BackupWrite")
-	procFindClose              = modkernel32.NewProc("FindClose")
-	procFindFirstStreamW       = modkernel32.NewProc("FindFirstStreamW")
-	procFindNextStreamW        = modkernel32.NewProc("FindNextStreamW")
-	procNtClose                = modntdll.NewProc("NtClose")
-	procNtOpenFile             = modntdll.NewProc("NtOpenFile")
-	procNtQueryEaFile          = modntdll.NewProc("NtQueryEaFile")
-	procNtQueryInformationFile = modntdll.NewProc("NtQueryInformationFile")
-	procNtSetEaFile            = modntdll.NewProc("NtSetEaFile")
+	procAddUsersToEncryptedFileW           = modadvapi32.NewProc("AddUsersToEncryptedFileW")
+	procCloseEncryptedFileRaw              = modadvapi32.NewProc("CloseEncryptedFileRaw")
+	procDecryptFileW                       = modadvapi32.NewProc("DecryptFileW")
+	procDuplicateEncryptionInfoFile        = modadvapi32.NewProc("DuplicateEncryptionInfoFile")
+	procEncryptFileW                       = modadvapi32.NewProc("EncryptFileW")
+	procEncryptionDisable                  = modadvapi32.NewProc("EncryptionDisable")
+	procFileEncryptionStatusW              = modadvapi32.NewProc("FileEncryptionStatusW")
+	procFreeEncryptionCertificateHashList  = modadvapi32.NewProc("FreeEncryptionCertificateHashList")
+	procOpenEncryptedFileRawW              = modadvapi32.NewProc("OpenEncryptedFileRawW")
+	procQueryRecoveryAgentsOnEncryptedFile = modadvapi32.NewProc("QueryRecoveryAgentsOnEncryptedFile")
+	procQueryUsersOnEncryptedFile          = modadvapi32.NewProc("QueryUsersOnEncryptedFile")
+	procReadEncryptedFileRaw               = modadvapi32.NewProc("ReadEncryptedFileRaw")
+	procRemoveUsersFromEncryptedFile       = modadvapi32.NewProc("RemoveUsersFromEncryptedFile")
+	procSetUserFileEncryptionKey           = modadvapi32.NewProc("SetUserFileEncryptionKey")
+	procWriteEncryptedFileRaw              = modadvapi32.NewProc("WriteEncryptedFileRaw")
+	procBackupRead                         = modkernel32.NewProc("BackupRead")
+	procBackupSeek                         = modkernel32.NewProc("BackupSeek")
+	procBackupWrite                        = modkernel32.NewProc("BackupWrite")
+	procFindClose                          = modkernel32.NewProc("FindClose")
+	procFindFirstStreamW                   = modkernel32.NewProc("FindFirstStreamW")
+	procFindNextStreamW                    = modkernel32.NewProc("FindNextStreamW")
+	procNtClose                            = modntdll.NewProc("NtClose")
+	procNtOpenFile                         = modntdll.NewProc("NtOpenFile")
+	procNtQueryEaFile                      = modntdll.NewProc("NtQueryEaFile")
+	procNtQueryInformationFile             = modntdll.NewProc("NtQueryInformationFile")
+	procNtSetEaFile                        = modntdll.NewProc("NtSetEaFile")
 )
+
+func addUsersToEncryptedFile(lpFileName *uint16, pEncryptionCertificates *ENCRYPTION_CERTIFICATE_LIST) (ret error) {
+	r0, _, _ := syscall.Syscall(procAddUsersToEncryptedFileW.Addr(), 2, uintptr(unsafe.Pointer(lpFileName)), uintptr(unsafe.Pointer(pEncryptionCertificates)), 0)
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func CloseEncryptedFileRaw(pvContext unsafe.Pointer) {
+	syscall.Syscall(procCloseEncryptedFileRaw.Addr(), 1, uintptr(pvContext), 0, 0)
+	return
+}
+
+func decryptFile(lpFileName *uint16, dwReserved uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procDecryptFileW.Addr(), 2, uintptr(unsafe.Pointer(lpFileName)), uintptr(dwReserved), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func duplicateEncryptionInfoFile(srcFileName *uint16, dstFileName *uint16, creationDistribution uint32, attributes uint32, lpSecurityAttributes *windows.SecurityAttributes) (ret error) {
+	r0, _, _ := syscall.Syscall6(procDuplicateEncryptionInfoFile.Addr(), 5, uintptr(unsafe.Pointer(srcFileName)), uintptr(unsafe.Pointer(dstFileName)), uintptr(creationDistribution), uintptr(attributes), uintptr(unsafe.Pointer(lpSecurityAttributes)), 0)
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func encryptFile(lpFileName *uint16) (err error) {
+	r1, _, e1 := syscall.Syscall(procEncryptFileW.Addr(), 1, uintptr(unsafe.Pointer(lpFileName)), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func encryptionDisable(dirPath *uint16, disable bool) (err error) {
+	var _p0 uint32
+	if disable {
+		_p0 = 1
+	}
+	r1, _, e1 := syscall.Syscall(procEncryptionDisable.Addr(), 2, uintptr(unsafe.Pointer(dirPath)), uintptr(_p0), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func fileEncryptionStatus(lpFileName *uint16, lpStatus *uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procFileEncryptionStatusW.Addr(), 2, uintptr(unsafe.Pointer(lpFileName)), uintptr(unsafe.Pointer(lpStatus)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func FreeEncryptionCertificateHashList(pUsers *ENCRYPTION_CERTIFICATE_HASH_LIST) {
+	syscall.Syscall(procFreeEncryptionCertificateHashList.Addr(), 1, uintptr(unsafe.Pointer(pUsers)), 0, 0)
+	return
+}
+
+func openEncryptedFileRaw(lpFileName *uint16, ulFlags uint32, pvContext *unsafe.Pointer) (ret error) {
+	r0, _, _ := syscall.Syscall(procOpenEncryptedFileRawW.Addr(), 3, uintptr(unsafe.Pointer(lpFileName)), uintptr(ulFlags), uintptr(unsafe.Pointer(pvContext)))
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func queryRecoveryAgentsOnEncryptedFile(lpFileName *uint16, pRecoveryAgents *ENCRYPTION_CERTIFICATE_HASH_LIST) (ret error) {
+	r0, _, _ := syscall.Syscall(procQueryRecoveryAgentsOnEncryptedFile.Addr(), 2, uintptr(unsafe.Pointer(lpFileName)), uintptr(unsafe.Pointer(pRecoveryAgents)), 0)
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func queryUsersOnEncryptedFile(lpFileName *uint16, pUsers *ENCRYPTION_CERTIFICATE_HASH_LIST) (ret error) {
+	r0, _, _ := syscall.Syscall(procQueryUsersOnEncryptedFile.Addr(), 2, uintptr(unsafe.Pointer(lpFileName)), uintptr(unsafe.Pointer(pUsers)), 0)
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func ReadEncryptedFileRaw(pfExportCallback uintptr, pvCallbackContext unsafe.Pointer, pvContext unsafe.Pointer) (ret error) {
+	r0, _, _ := syscall.Syscall(procReadEncryptedFileRaw.Addr(), 3, uintptr(pfExportCallback), uintptr(pvCallbackContext), uintptr(pvContext))
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func removeUsersFromEncryptedFile(lpFileName *uint16, pHashes *ENCRYPTION_CERTIFICATE_HASH_LIST) (ret error) {
+	r0, _, _ := syscall.Syscall(procRemoveUsersFromEncryptedFile.Addr(), 2, uintptr(unsafe.Pointer(lpFileName)), uintptr(unsafe.Pointer(pHashes)), 0)
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func SetUserFileEncryptionKey(pEncryptionCertificate *ENCRYPTION_CERTIFICATE) (ret error) {
+	r0, _, _ := syscall.Syscall(procSetUserFileEncryptionKey.Addr(), 1, uintptr(unsafe.Pointer(pEncryptionCertificate)), 0, 0)
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func WriteEncryptedFileRaw(pfImportCallback uintptr, pvCallbackContext unsafe.Pointer, pvContext unsafe.Pointer) (ret error) {
+	r0, _, _ := syscall.Syscall(procWriteEncryptedFileRaw.Addr(), 3, uintptr(pfImportCallback), uintptr(pvCallbackContext), uintptr(pvContext))
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
 
 func backupRead(file windows.Handle, buffer *byte, numberOfBytesToRead uint32, numberOfBytesRead *uint32, abort bool, processSecurity bool, context *uintptr) (err error) {
 	var _p0 uint32
