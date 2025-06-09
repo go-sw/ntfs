@@ -502,15 +502,9 @@ func NewBackupUtil(r io.ReadSeekCloser) *BackupUtil {
 	}
 }
 
-type WriteSeekCloser interface {
-	io.Writer
-	io.Seeker
-	io.Closer
-}
-
 // RestoreUtil is a wrapper for restoring file with user-defined handler.
 type RestoreUtil struct {
-	w       WriteSeekCloser
+	w       w32api.WriteSeekCloser
 	ctx     BackupCtx
 	hdrData []byte // handle header data
 
@@ -634,7 +628,7 @@ func (rs *RestoreUtil) Close() error {
 	return rs.w.Close()
 }
 
-func NewRestoreUtil(w WriteSeekCloser) *RestoreUtil {
+func NewRestoreUtil(w w32api.WriteSeekCloser) *RestoreUtil {
 	return &RestoreUtil{
 		w:       w,
 		ctx:     BackupCtx{Hdr: &BackupHeader{}},

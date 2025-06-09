@@ -70,7 +70,12 @@ func FindClose(findFile windows.Handle) (err error) {
 //
 // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-backupread
 func BackupRead(file windows.Handle, buffer []byte, abort, processSecurity bool, context *uintptr) (bytesRead uint32, err error) {
-	err = backupRead(file, &buffer[0], uint32(len(buffer)), &bytesRead, abort, processSecurity, context)
+	var b *byte
+	if len(buffer) > 0 {
+		b = &buffer[0]
+	}
+
+	err = backupRead(file, b, uint32(len(buffer)), &bytesRead, abort, processSecurity, context)
 	return
 }
 
@@ -103,7 +108,12 @@ func BackupSeek(file windows.Handle, offset uint64, context *uintptr) (seeked ui
 //
 // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-backupwrite
 func BackupWrite(file windows.Handle, buffer []byte, abort, processSecurity bool, context *uintptr) (bytesWritten uint32, err error) {
-	err = backupWrite(file, &buffer[0], uint32(len(buffer)), &bytesWritten, abort, processSecurity, context)
+	var b *byte
+	if len(buffer) > 0 {
+		b = &buffer[0]
+	}
+
+	err = backupWrite(file, b, uint32(len(buffer)), &bytesWritten, abort, processSecurity, context)
 	return
 }
 

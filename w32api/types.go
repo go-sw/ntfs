@@ -1,6 +1,8 @@
 package w32api
 
 import (
+	"io"
+
 	"golang.org/x/sys/windows"
 )
 
@@ -21,6 +23,8 @@ type WIN32_FIND_STREAM_DATA struct {
 	StreamName [windows.MAX_PATH + 36]uint16
 }
 
+// backup
+
 type WIN32_STREAM_ID struct {
 	StreamId         uint32
 	StreamAttributes uint32
@@ -29,14 +33,30 @@ type WIN32_STREAM_ID struct {
 	// StreamName    [StreamNameSize]uint16
 }
 
+type FILE_LINKS_INFORMATION struct {
+	BytesNeeded     uint32
+	EntriesReturned uint32
+	// [EntriesReturned]FILE_LINK_ENTRY_INFORMATION
+	Entry FILE_LINK_ENTRY_INFORMATION
+}
+
+type FILE_LINK_ENTRY_INFORMATION struct {
+	NextEntryOffset uint32
+	ParentFileId    int64
+	Filenamelength  uint32
+	FileName        [anySize]uint16
+}
+
 // EA(extended attributes)
 
 const (
 	FILE_NEED_EA = 0x80 // file should be interpreted with Extended Attributes(EA)
 )
 
+// file information class type used in NtQueryInformationFile and NtSetInformationFile.
 const (
-	FileEaInformation = 7
+	FileEaInformation       = 7
+	FileHardLinkInformation = 46
 )
 
 type FILE_EA_INFORMATION struct {
@@ -107,4 +127,11 @@ type ENCRYPTION_CERTIFICATE_HASH struct {
 type ENCRYPTION_CERTIFICATE_HASH_LIST struct {
 	NumCertHash uint32
 	Users       *ENCRYPTION_CERTIFICATE_HASH // []ENCRYPTION_CERTIFICATE_HASH
+}
+
+// interface that implements Write, Seek and Close
+type WriteSeekCloser interface {
+	io.Writer
+	io.Seeker
+	io.Closer
 }
