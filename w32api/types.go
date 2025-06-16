@@ -2,6 +2,7 @@ package w32api
 
 import (
 	"io"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -128,6 +129,44 @@ type ENCRYPTION_CERTIFICATE_HASH_LIST struct {
 	NumCertHash uint32
 	Users       *ENCRYPTION_CERTIFICATE_HASH // []ENCRYPTION_CERTIFICATE_HASH
 }
+
+// CopyProgressRoutine
+type LPPROGRESS_ROUTINE func(
+	totalFileSize int64,
+	totalBytesTransferred int64,
+	streamSize int64,
+	streamBytesTransferred int64,
+	streamNumber uint32,
+	callbackReason uint32,
+	sourceFile windows.Handle,
+	destinationFile windows.Handle,
+	data unsafe.Pointer,
+) /* uint32 */ uintptr
+
+// CopyProgressRoutine callback reason
+const (
+	CALLBACK_CHUNK_FINISHED = 0x00000000
+	CALLBACK_STREAM_FINISH  = 0x00000001
+)
+
+// CopyProgressRoutine return value
+const (
+	PROGRESS_CONTINUE = 0
+	PROGRESS_CANCEL   = 1
+	PROGRESS_STOP     = 2
+	PROGRESS_QUIET    = 3
+)
+
+// CopyFileEx flags
+const (
+	COPY_FILE_FAIL_IF_EXISTS              = 0x00000001
+	COPY_FILE_RESTARTABLE                 = 0x00000002
+	COPY_FILE_OPEN_SOURCE_FOR_WRITE       = 0x00000004
+	COPY_FILE_ALLOW_DECRYPTED_DESTINATION = 0x00000008
+	COPY_FILE_COPY_SYMLINK                = 0x00000800
+	COPY_FILE_NO_BUFFERING                = 0x00001000
+	COPY_FILE_REQUEST_COMPRESSED_TRAFFIC  = 0x10000000
+)
 
 // interface that implements Write, Seek and Close
 type WriteSeekCloser interface {

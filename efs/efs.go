@@ -1,3 +1,5 @@
+//go:build windows
+
 package efs
 
 import (
@@ -11,63 +13,65 @@ import (
 	"github.com/go-sw/ntfs/w32api"
 )
 
-type ExportContext struct {
-	Context any
+type ExportContext[T any] struct {
+	Context T
 
 	// If the function succeeds, it must set the return value to ERROR_SUCCESS.
-	Handler func(data *byte, ctx *ExportContext, length uint32) uintptr
+	Handler func(data *byte, ctx *ExportContext[T], length uint32) uintptr
 }
 
-type ImportContext struct {
-	Context any
+type ImportContext[T any] struct {
+	Context T
 
 	// If the function succeeds, it must set the return value to ERROR_SUCCESS, and set the value pointed to by the length parameter to the number of bytes copied into data.
 	//
-	// When the end of the backup file is reached, set ulLength to zero to tell the system that the entire file has been processed.
-	Handler func(data *byte, ctx *ImportContext, length *uint32) uintptr // user defined callback
+	// When the end of the backup file is reached, the referenced value of length should to set to zero to tell the system that the entire file has been processed.
+	Handler func(data *byte, ctx *ImportContext[T], length *uint32) uintptr // user defined callback
 }
 
-// newCallback creates callback function pointer to be used by ReadEncryptedFileRaw or WriteEncryptedFileRaw.
+// newReadCallback creates callback function pointer to be used by ReadEncryptedFileRaw.
 // Note that only a limited number of callbacks may be created in a single Go process.
-func newCallback[userCtx *ExportContext | *ImportContext](ctx userCtx) uintptr {
-	switch any(ctx).(type) {
-	case *ExportContext:
-		cb := func(data *byte, callbackContext unsafe.Pointer, length uint32) uintptr {
-			c := (*ExportContext)(callbackContext)
+func newReadCallback[T any]() uintptr {
+	cb := func(data *byte, callbackContext unsafe.Pointer, length uint32) uintptr {
+		c := (*ExportContext[T])(callbackContext)
 
-			return c.Handler(data, c, length)
-		}
-		return windows.NewCallback(cb)
-	case *ImportContext:
-		cb := func(data *byte, callbackContext unsafe.Pointer, length *uint32) uintptr {
-			c := (*ImportContext)(callbackContext)
-
-			return c.Handler(data, c, length)
-		}
-		return windows.NewCallback(cb)
-	default:
-		// cannot reach here
-		return 0
+		return c.Handler(data, c, length)
 	}
+	return windows.NewCallback(cb)
 }
 
-type EfsClient struct {
+// newWriteCallback creates callback function pointer to be used by WriteEncryptedFileRaw.
+// Note that only a limited number of callbacks may be created in a single Go process.
+func newWriteCallback[T any]() uintptr {
+	cb := func(data *byte, callbackContext unsafe.Pointer, length *uint32) uintptr {
+		c := (*ImportContext[T])(callbackContext)
+
+		return c.Handler(data, c, length)
+	}
+	return windows.NewCallback(cb)
+}
+
+type EfsClient[T, U any] struct {
 	readcb, writeCb uintptr
 
-	ReadCtx  *ExportContext
-	WriteCtx *ImportContext
+	ReadCtx  *ExportContext[T]
+	WriteCtx *ImportContext[U]
 
 	// TODO: handle certificate(wincrypt)
 }
 
-func NewEfsClient() (*EfsClient, error) {
-	client := &EfsClient{
-		ReadCtx:  &ExportContext{},
-		WriteCtx: &ImportContext{},
+func NewEfsClient[T, U any](readCtx T, writeCtx U) (*EfsClient[T, U], error) {
+	client := &EfsClient[T, U]{
+		ReadCtx: &ExportContext[T]{
+			Context: readCtx,
+		},
+		WriteCtx: &ImportContext[U]{
+			Context: writeCtx,
+		},
 	}
 
-	client.readcb = newCallback(client.ReadCtx)
-	client.writeCb = newCallback(client.WriteCtx)
+	client.readcb = newReadCallback[T]()
+	client.writeCb = newWriteCallback[U]()
 
 	return client, nil
 }
@@ -79,27 +83,22 @@ type rawReadWriteCtx struct {
 
 // RawReadWriter converts encrypted file or directory into a raw data keeping its encryption.
 type RawReadWriter struct {
-	*EfsClient
-
-	ctx *rawReadWriteCtx
+	*EfsClient[*rawReadWriteCtx, *rawReadWriteCtx]
 }
 
 func NewRawReadWriter() (*RawReadWriter, error) {
-	client, err := NewEfsClient()
+	ctx := &rawReadWriteCtx{}
+	client, err := NewEfsClient(ctx, ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	rw := &RawReadWriter{
 		EfsClient: client,
-		ctx:       &rawReadWriteCtx{},
 	}
 
-	rw.ReadCtx.Context = rw.ctx
-	rw.WriteCtx.Context = rw.ctx
-
-	rw.ReadCtx.Handler = func(data *byte, ctx *ExportContext, length uint32) uintptr {
-		c := ctx.Context.(*rawReadWriteCtx)
+	rw.ReadCtx.Handler = func(data *byte, ctx *ExportContext[*rawReadWriteCtx], length uint32) uintptr {
+		c := ctx.Context
 
 		buf := unsafe.Slice(data, length)
 		_, err := c.target.Write(buf)
@@ -110,8 +109,8 @@ func NewRawReadWriter() (*RawReadWriter, error) {
 
 		return uintptr(windows.ERROR_SUCCESS)
 	}
-	rw.WriteCtx.Handler = func(data *byte, ctx *ImportContext, length *uint32) uintptr {
-		c := ctx.Context.(*rawReadWriteCtx)
+	rw.WriteCtx.Handler = func(data *byte, ctx *ImportContext[*rawReadWriteCtx], length *uint32) uintptr {
+		c := ctx.Context
 
 		buf := unsafe.Slice(data, *length)
 		n, err := c.target.Read(buf)
@@ -142,7 +141,7 @@ func (rw *RawReadWriter) ReadRaw(srcFile string, dst io.ReadWriter) error {
 		openFlag |= w32api.CREATE_FOR_DIR
 	}
 
-	rw.ctx.target = dst
+	rw.ReadCtx.Context.target = dst
 
 	rawCtx, err := w32api.OpenEncryptedFileRaw(srcFile, openFlag)
 	if err != nil {
@@ -152,7 +151,7 @@ func (rw *RawReadWriter) ReadRaw(srcFile string, dst io.ReadWriter) error {
 
 	err = w32api.ReadEncryptedFileRaw(rw.readcb, unsafe.Pointer(rw.ReadCtx), rawCtx)
 	if err != nil {
-		return errors.Join(err, rw.ctx.err)
+		return errors.Join(err, rw.ReadCtx.Context.err)
 	}
 
 	return nil
@@ -166,7 +165,7 @@ func (rw *RawReadWriter) WriteRaw(dstFile string, src io.ReadWriter, dir bool) e
 		openFlag |= w32api.CREATE_FOR_DIR
 	}
 
-	rw.ctx.target = src
+	rw.WriteCtx.Context.target = src
 
 	rawCtx, err := w32api.OpenEncryptedFileRaw(dstFile, openFlag)
 	if err != nil {
@@ -176,7 +175,7 @@ func (rw *RawReadWriter) WriteRaw(dstFile string, src io.ReadWriter, dir bool) e
 
 	err = w32api.WriteEncryptedFileRaw(rw.writeCb, unsafe.Pointer(rw.WriteCtx), rawCtx)
 	if err != nil {
-		return errors.Join(err, rw.ctx.err)
+		return errors.Join(err, rw.WriteCtx.Context.err)
 	}
 
 	return nil

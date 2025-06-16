@@ -8,7 +8,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// file operation functions
+// nt file operation functions
 
 //sys	ntOpenFile(fileHandle *windows.Handle, accessMask uint32, objectAttributes *windows.OBJECT_ATTRIBUTES, ioStatusBlock *windows.IO_STATUS_BLOCK, sharedAccess uint32, openOptions uint32) (ntstatus error) = ntdll.NtOpenFile
 //sys	ntClose(fileHandle windows.Handle) (ntstatus error) = ntdll.NtClose
@@ -29,6 +29,108 @@ func NtQueryInformationFile(fileHandle windows.Handle, ioStatusBlock *windows.IO
 	return
 }
 
+// file operation functions
+
+//sys	copyFileEx(existingFileName *uint16, newFileName *uint16, progressRoutine uintptr, data unsafe.Pointer, cancel *int32, copyFlags uint32) (err error) = kernel32.CopyFileExW
+//sys	moveFileEx(existingFileName *uint16, newFileName *uint16, flags uint32) (err error) = kernel32.MoveFileExW
+//sys	moveFileWithProgress(existingFileName *uint16, newFileName *uint16, progressRoutine uintptr, data unsafe.Pointer, flags uint32) (err error) = kernel32.MoveFileWithProgressW
+//sys	setFileShortName(file windows.Handle, shortName *uint16) (err error) = kernel32.SetFileShortNameW
+//sys	getShortPathName(longPath *uint16, shortPath *uint16, cchBuffer uint32) (length uint32, err error) = kernel32.GetShortPathNameW
+//sys	getLongPathName(shortPath *uint16, longPath *uint16, cchBuffer uint32) (length uint32, err error) = kernel32.GetLongPathNameW
+
+func CopyFileEx(existingFileName, newFileName string, progressRoutine uintptr, data unsafe.Pointer, cancel *int32, flags uint32) error {
+	u16Exist, err := windows.UTF16PtrFromString(existingFileName)
+	if err != nil {
+		return err
+	}
+
+	u16New, err := windows.UTF16PtrFromString(newFileName)
+	if err != nil {
+		return err
+	}
+
+	return copyFileEx(u16Exist, u16New, progressRoutine, data, cancel, flags)
+}
+
+func MoveFileEx(existingFileName, newFileName string, flags uint32) error {
+	u16Old, err := windows.UTF16PtrFromString(existingFileName)
+	if err != nil {
+		return err
+	}
+
+	u16New, err := windows.UTF16PtrFromString(newFileName)
+	if err != nil {
+		return err
+	}
+
+	return moveFileEx(u16Old, u16New, flags)
+}
+
+func MoveFileWithProgress(existingFileName, newFileName string, progressRoutine uintptr, data unsafe.Pointer, flags uint32) error {
+	u16Old, err := windows.UTF16PtrFromString(existingFileName)
+	if err != nil {
+		return err
+	}
+
+	u16New, err := windows.UTF16PtrFromString(newFileName)
+	if err != nil {
+		return err
+	}
+
+	return moveFileWithProgress(u16Old, u16New, progressRoutine, data, flags)
+}
+
+func SetFileShortName(file windows.Handle, shortName string) error {
+	u16Short, err := windows.UTF16PtrFromString(shortName)
+	if err != nil {
+		return err
+	}
+
+	return setFileShortName(file, u16Short)
+}
+
+func GetShortPathName(path string) (string, error) {
+	u16Path, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return "", err
+	}
+
+	ret, err := getShortPathName(u16Path, nil, 0)
+	if ret == 0 {
+		return "", err
+	}
+
+	buf := make([]uint16, ret)
+
+	ret, err = getShortPathName(u16Path, &buf[0], uint32(len(buf)))
+	if ret == 0 {
+		return "", err
+	}
+
+	return windows.UTF16ToString(buf), nil
+}
+
+func GetLongPathName(shortName string) (string, error) {
+	u16Short, err := windows.UTF16PtrFromString(shortName)
+	if err != nil {
+		return "", err
+	}
+
+	ret, err := getLongPathName(u16Short, nil, 0)
+	if ret == 0 {
+		return "", err
+	}
+
+	buf := make([]uint16, ret)
+
+	ret, err = getLongPathName(u16Short, &buf[0], uint32(len(buf)))
+	if ret == 0 {
+		return "", err
+	}
+
+	return windows.UTF16ToString(buf), nil
+}
+
 // ADS(alternate data stream) functions
 
 //sys	findFirstStream(fileName *uint16, infoLevel int32, findStreamData unsafe.Pointer, flags uint32) (hnd windows.Handle, err error) [failretval==windows.InvalidHandle] = kernel32.FindFirstStreamW
@@ -44,7 +146,7 @@ func FindFirstStream(fileName string, infoLevel int32, flags uint32) (hnd window
 	// returned error
 	// windows.ERROR_HANDLE_EOF if there is no stream
 	// windows.ERROR_INVALID_PARAMETER for unsupported file system
-	hnd, err = findFirstStream(wStr, FindStreamInfoStandard, unsafe.Pointer(&data), flags) // flags should be 0
+	hnd, err = findFirstStream(wStr, infoLevel, unsafe.Pointer(&data), flags) // flags should be 0
 	return
 }
 

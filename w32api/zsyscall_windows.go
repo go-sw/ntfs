@@ -60,9 +60,15 @@ var (
 	procBackupRead                         = modkernel32.NewProc("BackupRead")
 	procBackupSeek                         = modkernel32.NewProc("BackupSeek")
 	procBackupWrite                        = modkernel32.NewProc("BackupWrite")
+	procCopyFileExW                        = modkernel32.NewProc("CopyFileExW")
 	procFindClose                          = modkernel32.NewProc("FindClose")
 	procFindFirstStreamW                   = modkernel32.NewProc("FindFirstStreamW")
 	procFindNextStreamW                    = modkernel32.NewProc("FindNextStreamW")
+	procGetLongPathNameW                   = modkernel32.NewProc("GetLongPathNameW")
+	procGetShortPathNameW                  = modkernel32.NewProc("GetShortPathNameW")
+	procMoveFileExW                        = modkernel32.NewProc("MoveFileExW")
+	procMoveFileWithProgressW              = modkernel32.NewProc("MoveFileWithProgressW")
+	procSetFileShortNameW                  = modkernel32.NewProc("SetFileShortNameW")
 	procNtClose                            = modntdll.NewProc("NtClose")
 	procNtOpenFile                         = modntdll.NewProc("NtOpenFile")
 	procNtQueryEaFile                      = modntdll.NewProc("NtQueryEaFile")
@@ -228,6 +234,14 @@ func backupWrite(file windows.Handle, buffer *byte, numberOfBytesToRead uint32, 
 	return
 }
 
+func copyFileEx(existingFileName *uint16, newFileName *uint16, progressRoutine uintptr, data unsafe.Pointer, cancel *int32, copyFlags uint32) (err error) {
+	r1, _, e1 := syscall.Syscall6(procCopyFileExW.Addr(), 6, uintptr(unsafe.Pointer(existingFileName)), uintptr(unsafe.Pointer(newFileName)), uintptr(progressRoutine), uintptr(data), uintptr(unsafe.Pointer(cancel)), uintptr(copyFlags))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func findClose(findFile windows.Handle) (err error) {
 	r1, _, e1 := syscall.Syscall(procFindClose.Addr(), 1, uintptr(findFile), 0, 0)
 	if r1 == 0 {
@@ -247,6 +261,48 @@ func findFirstStream(fileName *uint16, infoLevel int32, findStreamData unsafe.Po
 
 func findNextStream(findStream windows.Handle, findStreamData unsafe.Pointer) (err error) {
 	r1, _, e1 := syscall.Syscall(procFindNextStreamW.Addr(), 2, uintptr(findStream), uintptr(findStreamData), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func getLongPathName(shortPath *uint16, longPath *uint16, cchBuffer uint32) (length uint32, err error) {
+	r0, _, e1 := syscall.Syscall(procGetLongPathNameW.Addr(), 3, uintptr(unsafe.Pointer(shortPath)), uintptr(unsafe.Pointer(longPath)), uintptr(cchBuffer))
+	length = uint32(r0)
+	if length == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func getShortPathName(longPath *uint16, shortPath *uint16, cchBuffer uint32) (length uint32, err error) {
+	r0, _, e1 := syscall.Syscall(procGetShortPathNameW.Addr(), 3, uintptr(unsafe.Pointer(longPath)), uintptr(unsafe.Pointer(shortPath)), uintptr(cchBuffer))
+	length = uint32(r0)
+	if length == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func moveFileEx(existingFileName *uint16, newFileName *uint16, flags uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procMoveFileExW.Addr(), 3, uintptr(unsafe.Pointer(existingFileName)), uintptr(unsafe.Pointer(newFileName)), uintptr(flags))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func moveFileWithProgress(existingFileName *uint16, newFileName *uint16, progressRoutine uintptr, data unsafe.Pointer, flags uint32) (err error) {
+	r1, _, e1 := syscall.Syscall6(procMoveFileWithProgressW.Addr(), 5, uintptr(unsafe.Pointer(existingFileName)), uintptr(unsafe.Pointer(newFileName)), uintptr(progressRoutine), uintptr(data), uintptr(flags), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func setFileShortName(file windows.Handle, shortName *uint16) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetFileShortNameW.Addr(), 2, uintptr(file), uintptr(unsafe.Pointer(shortName)), 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}

@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 
 	"golang.org/x/sys/windows"
 
 	"github.com/go-sw/ntfs/w32api"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 const (
@@ -106,9 +106,7 @@ func OpenFileADS(path string, name string, openFlag int) (*os.File, error) {
 // FileADS handles alternate data streams of a file.
 type FileADS struct {
 	Path          string
-	StreamInfoMap map[string]int64
-
-	mut *sync.Mutex // mutex for concurrent map handling
+	StreamInfoMap *xsync.Map[string, int64]
 }
 
 // GetFileADS returns ADS handler with a map of alternate data streams
@@ -128,8 +126,8 @@ func GetFileADS(path string) (*FileADS, error) {
 	}
 
 	ads := &FileADS{
-		Path: absPath,
-		mut:  &sync.Mutex{},
+		Path:          absPath,
+		StreamInfoMap: xsync.NewMap[string, int64](),
 	}
 
 	if err = ads.CollectADS(); err != nil {
@@ -141,9 +139,6 @@ func GetFileADS(path string) (*FileADS, error) {
 
 // CollectADS collects name and size of alternate data streams of the file.
 func (a *FileADS) CollectADS() error {
-	a.mut.Lock()
-	defer a.mut.Unlock()
-
 	findStrm, data, err := w32api.FindFirstStream(a.Path, w32api.FindStreamInfoStandard, 0)
 	if err == windows.ERROR_HANDLE_EOF {
 		// possible for directories or reparse points, files have at least one for unnamed data stream
@@ -154,10 +149,10 @@ func (a *FileADS) CollectADS() error {
 		return err
 	}
 
-	streamInfoMap := make(map[string]int64)
+	a.StreamInfoMap.Clear()
 
 	if strmName := parseStreamDataName(data); strmName != "" {
-		streamInfoMap[strmName] = data.StreamSize
+		a.StreamInfoMap.Store(strmName, data.StreamSize)
 	}
 
 	for {
@@ -171,7 +166,7 @@ func (a *FileADS) CollectADS() error {
 		}
 
 		if strmName := parseStreamDataName(data); strmName != "" {
-			streamInfoMap[strmName] = data.StreamSize
+			a.StreamInfoMap.Store(strmName, data.StreamSize)
 		}
 	}
 
@@ -181,24 +176,19 @@ EXIT:
 		return fmt.Errorf("error: %v, FindClose err: %v", err, closeErr)
 	}
 
-	a.StreamInfoMap = streamInfoMap
-
-	if len(a.StreamInfoMap) == 0 {
+	if a.StreamInfoMap.Size() == 0 {
 		// return ErrNoADS for files
 		return ErrNoADS
 	}
 
-	return nil
+	return err
 }
 
 // RenameADS renames alternate data stream with oldName to newName.
 // If stream with newName exists, it will be overwitten if overwrite is true,
 // otherwise return an error.
 func (a *FileADS) RenameADS(oldName, newName string, overwrite bool) error {
-	a.mut.Lock()
-	defer a.mut.Unlock()
-
-	size, ok := a.StreamInfoMap[oldName]
+	size, ok := a.StreamInfoMap.Load(oldName)
 	if !ok {
 		return fmt.Errorf("ADS \"%s\" does not exist", oldName)
 	}
@@ -226,18 +216,15 @@ func (a *FileADS) RenameADS(oldName, newName string, overwrite bool) error {
 	}
 	runtime.KeepAlive(f)
 
-	delete(a.StreamInfoMap, oldName)
-	a.StreamInfoMap[newName] = size
+	a.StreamInfoMap.Delete(oldName)
+	a.StreamInfoMap.Store(newName, size)
 
 	return nil
 }
 
 // RemoveADS removes alternate data stream with the name.
 func (a *FileADS) RemoveADS(name string) error {
-	a.mut.Lock()
-	defer a.mut.Unlock()
-
-	_, ok := a.StreamInfoMap[name]
+	_, ok := a.StreamInfoMap.Load(name)
 	if !ok {
 		return fmt.Errorf("stream \"%s\" does not exist", name)
 	}
@@ -246,7 +233,7 @@ func (a *FileADS) RemoveADS(name string) error {
 		return err
 	}
 
-	delete(a.StreamInfoMap, name)
+	a.StreamInfoMap.Delete(name)
 
 	return nil
 }
@@ -262,17 +249,14 @@ func (a *FileADS) RemoveAllADS() error {
 		return err
 	}
 
-	a.mut.Lock()
-	defer a.mut.Unlock()
-
-	for name := range a.StreamInfoMap {
+	a.StreamInfoMap.Range(func(name string, _ int64) bool {
 		if removeErr := os.Remove(a.Path + ":" + name); removeErr != nil {
 			err = errors.Join(err, removeErr)
-			continue
+			return true
 		}
-
-		delete(a.StreamInfoMap, name)
-	}
+		a.StreamInfoMap.Delete(name)
+		return true
+	})
 
 	return err
 }
