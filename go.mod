@@ -1,4 +1,4 @@
-module github.com/go-sw/ntfs
+module github.com/go-sw/winfs
 
 go 1.24
 

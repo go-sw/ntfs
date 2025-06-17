@@ -1,7 +1,7 @@
 package ea
 
 import (
-	"github.com/go-sw/ntfs/w32api"
+	"github.com/go-sw/winfs/w32api"
 )
 
 const (

@@ -84,3 +84,7 @@ func newLinkOrRenameBuffer(name string, replace bool) ([]byte, error) {
 
 	return renameInfo.Bytes(), nil
 }
+
+func NewCopyProgressRoutine(cb LPPROGRESS_ROUTINE) uintptr {
+	return windows.NewCallback(cb)
+}

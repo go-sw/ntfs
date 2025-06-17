@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/go-sw/ntfs/w32api"
+	"github.com/go-sw/winfs/w32api"
 )
 
 // bkupStruct provides functions for [MS-BKUP]

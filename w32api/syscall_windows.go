@@ -32,7 +32,6 @@ func NtQueryInformationFile(fileHandle windows.Handle, ioStatusBlock *windows.IO
 // file operation functions
 
 //sys	copyFileEx(existingFileName *uint16, newFileName *uint16, progressRoutine uintptr, data unsafe.Pointer, cancel *int32, copyFlags uint32) (err error) = kernel32.CopyFileExW
-//sys	moveFileEx(existingFileName *uint16, newFileName *uint16, flags uint32) (err error) = kernel32.MoveFileExW
 //sys	moveFileWithProgress(existingFileName *uint16, newFileName *uint16, progressRoutine uintptr, data unsafe.Pointer, flags uint32) (err error) = kernel32.MoveFileWithProgressW
 //sys	setFileShortName(file windows.Handle, shortName *uint16) (err error) = kernel32.SetFileShortNameW
 //sys	getShortPathName(longPath *uint16, shortPath *uint16, cchBuffer uint32) (length uint32, err error) = kernel32.GetShortPathNameW
@@ -50,20 +49,6 @@ func CopyFileEx(existingFileName, newFileName string, progressRoutine uintptr, d
 	}
 
 	return copyFileEx(u16Exist, u16New, progressRoutine, data, cancel, flags)
-}
-
-func MoveFileEx(existingFileName, newFileName string, flags uint32) error {
-	u16Old, err := windows.UTF16PtrFromString(existingFileName)
-	if err != nil {
-		return err
-	}
-
-	u16New, err := windows.UTF16PtrFromString(newFileName)
-	if err != nil {
-		return err
-	}
-
-	return moveFileEx(u16Old, u16New, flags)
 }
 
 func MoveFileWithProgress(existingFileName, newFileName string, progressRoutine uintptr, data unsafe.Pointer, flags uint32) error {

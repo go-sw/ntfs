@@ -66,7 +66,6 @@ var (
 	procFindNextStreamW                    = modkernel32.NewProc("FindNextStreamW")
 	procGetLongPathNameW                   = modkernel32.NewProc("GetLongPathNameW")
 	procGetShortPathNameW                  = modkernel32.NewProc("GetShortPathNameW")
-	procMoveFileExW                        = modkernel32.NewProc("MoveFileExW")
 	procMoveFileWithProgressW              = modkernel32.NewProc("MoveFileWithProgressW")
 	procSetFileShortNameW                  = modkernel32.NewProc("SetFileShortNameW")
 	procNtClose                            = modntdll.NewProc("NtClose")
@@ -280,14 +279,6 @@ func getShortPathName(longPath *uint16, shortPath *uint16, cchBuffer uint32) (le
 	r0, _, e1 := syscall.Syscall(procGetShortPathNameW.Addr(), 3, uintptr(unsafe.Pointer(longPath)), uintptr(unsafe.Pointer(shortPath)), uintptr(cchBuffer))
 	length = uint32(r0)
 	if length == 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
-func moveFileEx(existingFileName *uint16, newFileName *uint16, flags uint32) (err error) {
-	r1, _, e1 := syscall.Syscall(procMoveFileExW.Addr(), 3, uintptr(unsafe.Pointer(existingFileName)), uintptr(unsafe.Pointer(newFileName)), uintptr(flags))
-	if r1 == 0 {
 		err = errnoErr(e1)
 	}
 	return
