@@ -46,6 +46,8 @@ type CopyOptions struct {
 	NoBuffer bool
 	// request using tranferring compressed data
 	RequestCompress bool
+	// copy security descriptor from the source file
+	CopySecurity bool
 }
 
 func (o *CopyOptions) asFlags() uint32 {
@@ -96,6 +98,8 @@ type MoveOptions struct {
 	WriteThrough bool
 	// fail if the source file cannot be tracked for link after move
 	KeepTrack bool
+	// preserve security after move
+	PreserveSecurity bool
 }
 
 func (o *MoveOptions) asFlags() uint32 {

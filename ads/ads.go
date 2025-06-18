@@ -173,7 +173,7 @@ func (a *FileADS) CollectADS() error {
 EXIT:
 	closeErr := w32api.FindClose(findStrm)
 	if closeErr != nil {
-		return fmt.Errorf("error: %v, FindClose err: %v", err, closeErr)
+		return fmt.Errorf("error: %w, FindClose err: %w", err, closeErr)
 	}
 
 	if a.StreamInfoMap.Size() == 0 {

@@ -290,6 +290,11 @@ func (hdr *BackupHeader) IsActive() bool {
 	return hdr.active
 }
 
+// GetFullSize returns the size of the header including extra data.
+func (hdr *BackupHeader) GetFullSize() int {
+	return hdr.fullSize
+}
+
 func (hdr *BackupHeader) fill(r io.Reader) error {
 	hdr.Name = ""
 	hdr.SparseOffset = 0
@@ -419,7 +424,7 @@ func (u *BackupUtil) handleRead(p []byte) (int, error) {
 		}
 		u.ctx.BytesLeft -= int64(actualRead)
 	} else {
-		buf, err = u.ctx.Hdr.ToBytes()
+		buf, err = u.Handler(u.ctx, nil)
 		if err != nil {
 			return 0, err
 		}
@@ -466,6 +471,8 @@ func (u *BackupUtil) Read(p []byte) (int, error) {
 	}
 }
 
+// Seek implements [io.Seeker].Seek, note that if [BackupFileReader] is used only
+// [io.SeekCurrent] can be used for whence due to limitation of [w32api.BackupSeek].
 func (u *BackupUtil) Seek(offset int64, whence int) (int64, error) {
 	if u.ctx.state == strmState {
 		return 0, ErrSkipHeader
@@ -600,6 +607,8 @@ func (rs *RestoreUtil) Write(p []byte) (int, error) {
 	return min(consumed, inputLen), nil
 }
 
+// Seek implements [io.Seeker].Seek, note that if [BackupFileWriter] is used only
+// [io.SeekCurrent] can be used for whence due to limitation of [w32api.BackupSeek].
 func (rs *RestoreUtil) Seek(offset int64, whence int) (int64, error) {
 	if rs.ctx.state == strmState {
 		return 0, ErrSkipHeader

@@ -73,6 +73,7 @@ var (
 	procNtQueryEaFile                      = modntdll.NewProc("NtQueryEaFile")
 	procNtQueryInformationFile             = modntdll.NewProc("NtQueryInformationFile")
 	procNtSetEaFile                        = modntdll.NewProc("NtSetEaFile")
+	procNtSetSecurityObject                = modntdll.NewProc("NtSetSecurityObject")
 )
 
 func addUsersToEncryptedFile(lpFileName *uint16, pEncryptionCertificates *ENCRYPTION_CERTIFICATE_LIST) (ret error) {
@@ -342,6 +343,14 @@ func ntQueryInformationFile(fileHandle windows.Handle, ioStatusBlock *windows.IO
 
 func ntSetEaFile(fileHandle windows.Handle, ioStatusBlock *windows.IO_STATUS_BLOCK, buffer unsafe.Pointer, length uint32) (ntstatus error) {
 	r0, _, _ := syscall.Syscall6(procNtSetEaFile.Addr(), 4, uintptr(fileHandle), uintptr(unsafe.Pointer(ioStatusBlock)), uintptr(buffer), uintptr(length), 0, 0)
+	if r0 != 0 {
+		ntstatus = windows.NTStatus(r0)
+	}
+	return
+}
+
+func NtSetSecurityObject(handle windows.Handle, securityInformation windows.SECURITY_INFORMATION, securityDescriptor *windows.SECURITY_DESCRIPTOR) (ntstatus error) {
+	r0, _, _ := syscall.Syscall(procNtSetSecurityObject.Addr(), 3, uintptr(handle), uintptr(securityInformation), uintptr(unsafe.Pointer(securityDescriptor)))
 	if r0 != 0 {
 		ntstatus = windows.NTStatus(r0)
 	}

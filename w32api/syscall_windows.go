@@ -8,11 +8,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// nt file operation functions
+// nt kernel functions
 
 //sys	ntOpenFile(fileHandle *windows.Handle, accessMask uint32, objectAttributes *windows.OBJECT_ATTRIBUTES, ioStatusBlock *windows.IO_STATUS_BLOCK, sharedAccess uint32, openOptions uint32) (ntstatus error) = ntdll.NtOpenFile
 //sys	ntClose(fileHandle windows.Handle) (ntstatus error) = ntdll.NtClose
 //sys	ntQueryInformationFile(fileHandle windows.Handle, ioStatusBlock *windows.IO_STATUS_BLOCK, fileInformation unsafe.Pointer, length uint32, fileInformationClass int32) (ntstatus error) = ntdll.NtQueryInformationFile
+//sys	NtSetSecurityObject(handle windows.Handle, securityInformation windows.SECURITY_INFORMATION, securityDescriptor *windows.SECURITY_DESCRIPTOR) (ntstatus error) = ntdll.NtSetSecurityObject
 
 func NtOpenFile(accessMask uint32, objectAttributes *windows.OBJECT_ATTRIBUTES, ioStatusBlock *windows.IO_STATUS_BLOCK, sharedAccess uint32, openOptions uint32) (fileHandle windows.Handle, err error) {
 	err = ntOpenFile(&fileHandle, accessMask, objectAttributes, ioStatusBlock, sharedAccess, openOptions)
