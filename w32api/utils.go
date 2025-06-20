@@ -60,7 +60,7 @@ func newLinkOrRenameBuffer(name string, replace bool) ([]byte, error) {
 	wordSize := unsafe.Sizeof(windows.Handle(0)) // word size for alignment to match C struct
 
 	var renameInfo bytes.Buffer
-	var replaceIfExists uint32
+	var replaceIfExists int32
 
 	if replace {
 		replaceIfExists = 1 // TRUE

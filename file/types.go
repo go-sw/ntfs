@@ -38,8 +38,8 @@ type CopyOptions struct {
 	// open source file with write access
 	OpenSourceForWrite bool
 	// allow copying to desintation without encrypt(EFS) support, results in
-	// creating decrypted file
-	AllowDecrypt bool
+	// creating file without encryption
+	AllowDecryption bool
 	// copy the symbolic link itself pointing to the same target
 	CopySymlink bool
 	// copy without using buffered I/O
@@ -66,7 +66,7 @@ func (o *CopyOptions) asFlags() uint32 {
 	if o.OpenSourceForWrite {
 		flags |= w32api.COPY_FILE_OPEN_SOURCE_FOR_WRITE
 	}
-	if o.AllowDecrypt {
+	if o.AllowDecryption {
 		flags |= w32api.COPY_FILE_ALLOW_DECRYPTED_DESTINATION
 	}
 	if o.CopySymlink {

@@ -58,9 +58,13 @@ func MoveFileWithProgress(existingFileName, newFileName string, progressRoutine 
 		return err
 	}
 
-	u16New, err := windows.UTF16PtrFromString(newFileName)
-	if err != nil {
-		return err
+	// use nil pointer for empty name for deleting with reboot
+	var u16New *uint16
+	if len(newFileName) != 0 {
+		u16New, err = windows.UTF16PtrFromString(newFileName)
+		if err != nil {
+			return err
+		}
 	}
 
 	return moveFileWithProgress(u16Old, u16New, progressRoutine, data, flags)

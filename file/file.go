@@ -156,8 +156,21 @@ func NewWinFile(path string) (*WinFile, error) {
 	}, nil
 }
 
-// SetHandler sets handler which implements [progress], setting it to nil
-// removes callback for this file.
+// SetHandler sets handler which implements [progress]
+// which has the following method
+//
+//	HandleRoutine(
+//		totalFileSize int64,
+//		totalBytesTransferred int64,
+//		streamSize int64,
+//		streamBytesTransferred int64,
+//		streamNumber uint32,
+//		callbackReason uint32,
+//		sourceFile windows.Handle,
+//		destinationFile windows.Handle,
+//	) uintptr
+//
+// setting it to nil removes callback for this file.
 func (f *WinFile) SetHandler(handler progress) {
 	if handler == nil {
 		// do not use callback for later operations
