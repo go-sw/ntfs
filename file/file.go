@@ -58,8 +58,27 @@ func initCb() {
 	})
 }
 
+// fixPath changes path to absolute path with long name support
+func fixPath(path string) string {
+	var absPath string
+
+	if len(path) >= 4 && (path[:4] == `\\?\` || path[:4] == `\??\`) {
+		// path with prefix should be a absolute path
+		absPath = path
+	} else {
+		var err error
+		absPath, err = filepath.Abs(path)
+		if err == nil {
+			// prepend long path support prefix
+			absPath = `\\?\` + absPath
+		}
+	}
+
+	return absPath
+}
+
 func setSecurityInfo(target string, sd *windows.SECURITY_DESCRIPTOR) error {
-	u16target, err := windows.UTF16PtrFromString(target)
+	u16target, err := windows.UTF16PtrFromString(fixPath(target))
 	if err != nil {
 		return err
 	}
@@ -131,19 +150,7 @@ type WinFile struct {
 // the specified file should exist.
 func NewWinFile(path string) (*WinFile, error) {
 	var err error
-	var absPath string
-
-	if len(path) >= 4 && (path[:4] == `\\?\` || path[:4] == `\??\`) {
-		// path with prefix should be a absolute path
-		absPath = path
-	} else {
-		absPath, err = filepath.Abs(path)
-		if err != nil {
-			return nil, err
-		}
-		// prepend long path support prefix
-		absPath = `\\?\` + absPath
-	}
+	absPath := fixPath(path)
 
 	// check if the specified file exists
 	_, err = os.Lstat(absPath)
@@ -200,7 +207,7 @@ func (f *WinFile) CopySecurity(target string) error {
 // Copy copies the underlying file to the destination, cancel pointer can optionally be a
 // pointer to int32 value which can be set to non-zero value to cancel copy operation.
 func (f *WinFile) Copy(destination string, options *CopyOptions, cancel *int32) error {
-	err := w32api.CopyFileEx(f.path, destination, f.cbAddr, unsafe.Pointer(f.callback), cancel, options.asFlags())
+	err := w32api.CopyFileEx(f.path, fixPath(destination), f.cbAddr, unsafe.Pointer(f.callback), cancel, options.asFlags())
 	if err != nil {
 		return &os.PathError{Op: "CopyFileEx", Path: f.path, Err: err}
 	}
@@ -226,7 +233,7 @@ func (f *WinFile) Move(destination string, options *MoveOptions) error {
 		}
 	}
 
-	err = w32api.MoveFileWithProgress(f.path, destination, f.cbAddr, unsafe.Pointer(f.callback), options.asFlags())
+	err = w32api.MoveFileWithProgress(f.path, fixPath(destination), f.cbAddr, unsafe.Pointer(f.callback), options.asFlags())
 	if err != nil {
 		return &os.PathError{Op: "MoveFileWithProgress", Path: f.path, Err: err}
 	}
